@@ -77,6 +77,10 @@ class SGLangModel(LanguageModel):
         temperature = self.temperature if temperature is None else temperature
         logprobs = 0 if logprobs is None else logprobs
         
+        # Warn if logprobs requested but SGLang can't provide them reliably due to known bug
+        if logprobs and logprobs > 0:
+            warnings.warn("SGLang has known issues with logprobs parameter. Returning log_prob=None.")
+        
         if not do_sample:
             temperature = 0.0
 
@@ -122,11 +126,11 @@ class SGLangModel(LanguageModel):
                         top_p=top_p,
                         n=num_return_sequences,
                         stop=stop,
-                        logprobs=logprobs,
+                        # logprobs parameter removed - SGLang has KeyError: 'output_top_logprobs' bug
                     )
                     return GenerateOutput(
                         text=[choice.message.content + (choice.matched_stop if isinstance(choice.matched_stop, str) else "") for choice in response.choices],
-                        log_prob=[token.logprob for token in response.choices[0].logprobs.content] if logprobs else None,
+                        log_prob=None,  # SGLang logprobs not reliable due to known bug
                     )
                 else:
                     response = self.client.completions.create(
@@ -137,12 +141,12 @@ class SGLangModel(LanguageModel):
                         top_p=top_p,
                         n=num_return_sequences,
                         stop=stop,
-                        logprobs=logprobs,
+                        # logprobs parameter removed - SGLang has KeyError: 'output_top_logprobs' bug
                         **kwargs,
                     )
                     return GenerateOutput(
                         text=[choice.text + (choice.matched_stop if isinstance(choice.matched_stop, str) else "") for choice in response.choices],
-                        log_prob=[choice.logprobs.token_logprobs for choice in response.choices] if logprobs else None,
+                        log_prob=None,  # SGLang logprobs not reliable due to known bug
                     )
 
             except Exception as e:
