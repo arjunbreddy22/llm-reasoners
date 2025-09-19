@@ -115,7 +115,7 @@ if __name__ == '__main__':
              exllama_lora_dir: Optional[str] = None,
              exllama_mem_map: Optional[str] = None,
              sglang_url: str = 'http://127.0.0.1:30001',
-             sglang_model: str = 'meta-llama/Llama-3.1-8B-Instruct',
+             sglang_model: str = 'Qwen/Qwen2.5-7B-Instruct',
              batch_size: int = 1,
              prompts: str = 'examples/ToT/game24/prompts/game24.json',
              disable_log: bool = False,

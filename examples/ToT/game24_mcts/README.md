@@ -6,6 +6,7 @@ This implementation combines **Monte Carlo Tree Search (MCTS)** with **Tree of T
 ✅ **MCTS + ToT**: Adaptive reasoning exploration instead of fixed beam search  
 ✅ **SGLang Backend**: 100x faster inference with optimized server  
 ✅ **Pluggable Design**: Easy switching between algorithms and backends  
+✅ **Qwen2.5 Model**: Superior mathematical reasoning for Game24 problems  
 
 ## Key Differences from Original ToT
 - **Algorithm**: MCTS instead of BeamSearch
@@ -18,19 +19,19 @@ This implementation combines **Monte Carlo Tree Search (MCTS)** with **Tree of T
 ### For SGLang Backend (Recommended)
 1. Start SGLang server:
 ```bash
-python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port 30001
+python -m sglang.launch_server --model-path Qwen/Qwen2.5-7B-Instruct --port 30001
 ```
 
 2. Run MCTS-ToT with SGLang:
 ```bash
-python examples/ToT/game24_mcts/inference.py --base_lm sglang --sglang_model meta-llama/Llama-3.1-8B-Instruct --sglang_url http://127.0.0.1:30001
+python examples/ToT/game24_mcts/inference.py --base_lm sglang --sglang_model Qwen/Qwen2.5-7B-Instruct --sglang_url http://127.0.0.1:30001
 ```
 
 ### Other Backends
 
 HuggingFace (local):
 ```bash
-python examples/ToT/game24_mcts/inference.py --base_lm hf --hf_path meta-llama/Llama-3.1-8B-Instruct --batch_size 8
+python examples/ToT/game24_mcts/inference.py --base_lm hf --hf_path Qwen/Qwen2.5-7B-Instruct --batch_size 8
 ```
 
 Llama3 (local):
