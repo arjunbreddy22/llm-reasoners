@@ -37,7 +37,7 @@ class SGLangModel(LanguageModel):
     def __init_client__(self, url):
         
         import sglang as sgl
-        from sglang.api import set_default_backend
+        from sglang import set_default_backend
         from sglang import RuntimeEndpoint
         
         self.client = OpenAI(
