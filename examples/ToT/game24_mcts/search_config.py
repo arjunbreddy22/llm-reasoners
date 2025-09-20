@@ -98,14 +98,20 @@ class Game24Config(SearchConfig):
             next_state.current = match[1] if match is not None else ''
             next_state.history.append(action)
 
+        print(f'DEBUG: _reward check - history_len={len(next_state.history)}, depth_limit={self.depth_limit}')
         if len(next_state.history) >= self.depth_limit:
+            print(f'DEBUG: _reward returning 0.0 due to depth limit hit')
             return 0.
         if next_state.output is None:
             prompt = self.value_prompt_wrap(next_state)
+            print(f'DEBUG: _reward using value_prompt for state.current={repr(next_state.current)}')
         else:
             prompt = self.value_last_step_prompt_wrap(next_state)
+            print(f'DEBUG: _reward using value_last_step_prompt for output={repr(next_state.output)}')
         if prompt in self.value_cache:
+            print(f'DEBUG: _reward found cached value={self.value_cache[prompt]}')
             return self.value_cache[prompt]
+        print(f'DEBUG: _reward will evaluate with LLM, prompt={repr(prompt[:100])}...')
 
         if self.calc_reward == 'sampling':
             value_outputs = []
