@@ -46,8 +46,11 @@ class Game24WorldModel(WorldModel):
             match = re.match(r'.*\(left: (.*)\)', action)
             next_state.current = match[1] if match is not None else ''
             next_state.history.append(action)
-        # print(f'Stepping {state} with {action=} to {next_state}')
+        print(f'DEBUG: Stepping {state} with {action=} to {next_state}')
         return next_state, {'next_state': next_state}
 
     def is_terminal(self, state: Game24State) -> bool:
-        return state.output is not None
+        is_term = state.output is not None
+        if is_term:
+            print(f'DEBUG: Terminal state reached! Output: {repr(state.output)}')
+        return is_term

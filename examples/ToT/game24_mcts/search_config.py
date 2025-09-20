@@ -59,12 +59,13 @@ class Game24Config(SearchConfig):
     def get_actions(self, state: Game24State) -> list[Game24Action]:
         if state.current == '':
             return []
-        # print(f'Generating actions for {state}')
+        print(f'DEBUG: Generating actions for state.current={repr(state.current)}')
         if state.current == '24':
             prompt = self.output_prompt_wrap(state)
             output = \
             self.base_model.generate([prompt], num_return_sequences=1, do_sample=False, eos_token_id='\n').text[0]
             output = 'Answer: ' + output.strip()
+            print(f'DEBUG: Generated Answer action: {repr(output)}')
             return [output]
         elif ' ' not in state.current:
             return []
@@ -80,6 +81,7 @@ class Game24Config(SearchConfig):
             # set does not guarantee order, but dict does guarantee
             # we cannot use set here because torch.distributed in LLaMA requires the same order across all processes
             actions = list(dict.fromkeys(actions))
+            print(f'DEBUG: Generated {len(actions)} intermediate actions: {actions}')
             return actions
 
     def _reward(self, state: Game24State, action: Game24Action) -> float:
