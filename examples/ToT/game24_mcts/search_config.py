@@ -76,8 +76,7 @@ class Game24Config(SearchConfig):
             self.base_model.generate([prompt], num_return_sequences=1, do_sample=False, eos_token_id='Input').text[0]
             print(f'DEBUG: Raw model output: {repr(output)}')
             output = output.strip()
-            if '\n\n' in output:
-                output = output.split('\n\n')[0]
+            # Don't split on \n\n as it removes the actual operations
             output = output.split('\n')
             print(f'DEBUG: Split lines: {output}')
             actions = [x for x in output if 'left' in x]
