@@ -49,7 +49,7 @@ def mcts_tot_game24(base_model: LanguageModel,
     ## keep the best 5 candidates, need at most 4 steps to solve
     ## following ToT, eval step will consider number of times to prompt for state evaluation
     # search_algo_params |= {'beam_size': n_beam, 'max_depth': depth_limit}
-    search_algo_params |= {'output_trace_in_each_iter': True, 'depth_limit': depth_limit, 'disable_tqdm': False, 'n_iters': 10}
+    search_algo_params |= {'output_trace_in_each_iter': True, 'depth_limit': depth_limit, 'disable_tqdm': False, 'n_iters': 3}
     world_model = Game24WorldModel(base_model=base_model, prompt=prompts, batch_size=batch_size)
     config = Game24Config(base_model=base_model, prompt=prompts, calc_reward=calc_reward,
                           n_actions=n_action, n_eval=n_eval, batch_size=batch_size, depth_limit=depth_limit,)
