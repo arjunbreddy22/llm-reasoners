@@ -56,8 +56,8 @@ def mcts_tot_game24(base_model: LanguageModel,
     search_algo = search_algo(**search_algo_params)
     reasoner = Reasoner(world_model=world_model, search_config=config, search_algo=search_algo)
 
-    # test from 900-999 (change to 900:905 for quick 5-problem test)
-    dataset = utils.read_data(file='./examples/ToT/game24/data/24.csv')[900:1000]
+    # test from 900-905 for quick 5-problem test (change back to 900:1000 for full test)
+    dataset = utils.read_data(file='./examples/ToT/game24/data/24.csv')[900:905]
     correct_count = 0
     for i, example in enumerate(tqdm(dataset, total=len(dataset), initial=0, desc='game24')):
         # print(f'\n======== example {i}: {example} ========')
