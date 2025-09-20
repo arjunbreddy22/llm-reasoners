@@ -130,6 +130,7 @@ class Game24Config(SearchConfig):
 
     def fast_reward(self, state: Game24State, action: Game24Action) -> tuple[float, dict]:
         reward = self._reward(state, action)
+        print(f'DEBUG: fast_reward for action={repr(action[:30])}... = {reward}')
         return reward, {'reward': reward}
 
     # We calculate the full reward in fast_reward in Game24SearchConfig, direct return it
