@@ -53,7 +53,7 @@ class SGLangModel(LanguageModel):
         top_k: int = None,
         top_p: float = 1.0,
         num_return_sequences: int = 1,
-        rate_limit_per_min: Optional[int] = 20,
+        rate_limit_per_min: Optional[int] = None,
         stop: Optional[str] = None,
         eos_token_id: Optional[int] = None,
         logprobs: Optional[int] = None,
