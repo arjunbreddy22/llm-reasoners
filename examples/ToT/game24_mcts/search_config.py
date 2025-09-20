@@ -52,10 +52,17 @@ class Game24Config(SearchConfig):
 
     @staticmethod
     def retrieve_value(output: list[str]) -> float:
-        output_names = [x.split('\n')[-1] for x in output]
-        print(f'DEBUG: retrieve_value - final output_names: {output_names}')
+        # Search for keywords anywhere in the text, not just last line
+        keyword_counts = {'sure': 0, 'likely': 0, 'impossible': 0}
+        for text in output:
+            text_lower = text.lower()
+            for keyword in keyword_counts:
+                if keyword in text_lower:
+                    keyword_counts[keyword] += 1
+        
+        print(f'DEBUG: retrieve_value - keyword_counts: {keyword_counts}')
         print(f'DEBUG: retrieve_value - value_map: {value_map}')
-        value = sum(v * output_names.count(k) for k, v in value_map.items())
+        value = sum(v * keyword_counts[k] for k, v in value_map.items())
         return value
 
     def get_actions(self, state: Game24State) -> list[Game24Action]:
