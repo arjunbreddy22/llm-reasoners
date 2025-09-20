@@ -71,12 +71,15 @@ class Game24Config(SearchConfig):
             return []
         else:
             prompt = self.propose_prompt_wrap(state)
+            print(f'DEBUG: Prompt sent to model: {repr(prompt)}')
             output = \
             self.base_model.generate([prompt], num_return_sequences=1, do_sample=False, eos_token_id='Input').text[0]
+            print(f'DEBUG: Raw model output: {repr(output)}')
             output = output.strip()
             if '\n\n' in output:
                 output = output.split('\n\n')[0]
             output = output.split('\n')
+            print(f'DEBUG: Split lines: {output}')
             actions = [x for x in output if 'left' in x]
             # set does not guarantee order, but dict does guarantee
             # we cannot use set here because torch.distributed in LLaMA requires the same order across all processes
