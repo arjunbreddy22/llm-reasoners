@@ -50,10 +50,12 @@ def mcts_tot_game24(base_model: LanguageModel,
     ## following ToT, eval step will consider number of times to prompt for state evaluation
     # search_algo_params |= {'beam_size': n_beam, 'max_depth': depth_limit}
     search_algo_params |= {'output_trace_in_each_iter': True, 'depth_limit': depth_limit, 'disable_tqdm': False, 'n_iters': 3, 'uct_with_fast_reward': False}
+    print(f'DEBUG: MCTS parameters being passed: {search_algo_params}')
     world_model = Game24WorldModel(base_model=base_model, prompt=prompts, batch_size=batch_size)
     config = Game24Config(base_model=base_model, prompt=prompts, calc_reward=calc_reward,
                           n_actions=n_action, n_eval=n_eval, batch_size=batch_size, depth_limit=depth_limit,)
     search_algo = search_algo(**search_algo_params)
+    print(f'DEBUG: MCTS algorithm created with uct_with_fast_reward = {getattr(search_algo, "uct_with_fast_reward", "ATTRIBUTE NOT FOUND")}')
     reasoner = Reasoner(world_model=world_model, search_config=config, search_algo=search_algo)
 
     # test from 900-905 for quick 5-problem test (change back to 900:1000 for full test)
