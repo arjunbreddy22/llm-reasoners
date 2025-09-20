@@ -53,6 +53,8 @@ class Game24Config(SearchConfig):
     @staticmethod
     def retrieve_value(output: list[str]) -> float:
         output_names = [x.split('\n')[-1] for x in output]
+        print(f'DEBUG: retrieve_value - final output_names: {output_names}')
+        print(f'DEBUG: retrieve_value - value_map: {value_map}')
         value = sum(v * output_names.count(k) for k, v in value_map.items())
         return value
 
@@ -119,9 +121,13 @@ class Game24Config(SearchConfig):
                 n_samples = min(self.n_eval - idx, self.batch_size)
                 output = self.base_model.generate([prompt], do_sample=True, temperature=self.temperature,
                                                   num_return_sequences=n_samples).text
-                value_outputs += [o.strip().split('\n\n')[0] for o in output]
-            # print(value_outputs)
+                print(f'DEBUG: LLM raw output: {output}')
+                processed_outputs = [o.strip().split('\n\n')[0] for o in output]
+                value_outputs += processed_outputs
+                print(f'DEBUG: processed outputs: {processed_outputs}')
+            print(f'DEBUG: all value_outputs: {value_outputs}')
             value = self.retrieve_value(value_outputs)
+            print(f'DEBUG: retrieve_value result: {value}')
         elif self.calc_reward == 'logits':
             value_keys = list(value_map.keys())
             logits = self.base_model.get_next_token_logits([prompt], value_keys)[0]
