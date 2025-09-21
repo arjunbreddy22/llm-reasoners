@@ -140,7 +140,7 @@ class Game24Config(SearchConfig):
                 output = self.base_model.generate([prompt], do_sample=True, temperature=self.temperature,
                                                   num_return_sequences=n_samples).text
                 print(f'DEBUG: LLM raw output: {output}')
-                processed_outputs = [o.strip().split('\n\n')[0] for o in output]
+                processed_outputs = [o.strip() for o in output]  # Keep full text for retrieve_value()
                 value_outputs += processed_outputs
                 print(f'DEBUG: processed outputs: {processed_outputs}')
             print(f'DEBUG: all value_outputs: {value_outputs}')
