@@ -52,14 +52,25 @@ class Game24Config(SearchConfig):
 
     @staticmethod
     def retrieve_value(output: list[str]) -> float:
-        # Search for keywords anywhere in the text, not just last line
+        # Take last paragraph, then last line (where modern LLMs put evaluations)
         keyword_counts = {'sure': 0, 'likely': 0, 'impossible': 0}
+        
+        output_names = []
         for text in output:
+            # Get last paragraph
+            last_paragraph = text.split('\n\n')[-1]
+            # Get last line of last paragraph
+            last_line = last_paragraph.split('\n')[-1]
+            output_names.append(last_line)
+        
+        # Search for keywords in last lines (case insensitive)
+        for text in output_names:
             text_lower = text.lower()
             for keyword in keyword_counts:
                 if keyword in text_lower:
                     keyword_counts[keyword] += 1
         
+        print(f'DEBUG: retrieve_value - output_names: {output_names}')
         print(f'DEBUG: retrieve_value - keyword_counts: {keyword_counts}')
         print(f'DEBUG: retrieve_value - value_map: {value_map}')
         value = sum(v * keyword_counts[k] for k, v in value_map.items())
