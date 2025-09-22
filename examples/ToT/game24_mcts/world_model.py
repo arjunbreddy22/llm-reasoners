@@ -55,6 +55,7 @@ class Game24WorldModel(WorldModel):
 
     def is_terminal(self, state: Game24State) -> bool:
         is_term = state.output is not None
+        print(f'DEBUG: is_terminal check - state.current={repr(state.current)}, state.output={repr(state.output)}, is_terminal={is_term}')
         if is_term:
             print(f'DEBUG: Terminal state reached! Output: {repr(state.output)}')
         return is_term

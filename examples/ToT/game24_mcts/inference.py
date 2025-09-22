@@ -67,7 +67,19 @@ def mcts_tot_game24(base_model: LanguageModel,
         # algo_output = reasoner(example, action_dedup=True, return_beam=True, early_terminate=False,
         #                        reward_strategy='last_iter')
         algo_output = reasoner(example)
+        
+        # Debug final MCTS decision
+        print(f'DEBUG: MCTS completed for example: {example}')
+        print(f'DEBUG: MCTS terminal_state: {algo_output.terminal_state}')
+        if algo_output.terminal_state:
+            print(f'DEBUG: MCTS terminal_state.current: {repr(algo_output.terminal_state.current)}')
+            print(f'DEBUG: MCTS terminal_state.output: {repr(algo_output.terminal_state.output)}')
+            print(f'DEBUG: MCTS terminal_state.history: {algo_output.terminal_state.history}')
+        else:
+            print(f'DEBUG: MCTS terminal_state is None!')
+        
         output = algo_output.terminal_state.output if algo_output.terminal_state is not None else None
+        print(f'DEBUG: Final output for verification: {repr(output)}')
         # print(output)
         correct = utils.test_output(example, output)
 

@@ -88,6 +88,7 @@ class Game24Config(SearchConfig):
             print(f'DEBUG: Generated Answer action: {repr(output)}')
             return [output]
         elif ' ' not in state.current:
+            print(f'DEBUG: Single number state {repr(state.current)} - returning [] (no actions possible)')
             return []
         else:
             prompt = self.propose_prompt_wrap(state)
@@ -105,6 +106,10 @@ class Game24Config(SearchConfig):
             actions = list(dict.fromkeys(actions))
             print(f'DEBUG: Generated {len(actions)} intermediate actions: {actions}')
             return actions
+        
+        # This should never be reached, but add debug just in case
+        print(f'DEBUG: get_actions fallthrough - returning [] for state.current={repr(state.current)}')
+        return []
 
     def _reward(self, state: Game24State, action: Game24Action) -> float:
         if state.current == '':
