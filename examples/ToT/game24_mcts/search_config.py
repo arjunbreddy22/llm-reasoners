@@ -5,6 +5,7 @@ from typing import Literal
 import numpy as np
 import scipy
 import torch
+import time
 
 from reasoners import SearchConfig, LanguageModel
 from world_model import Game24State, Game24Action
@@ -33,6 +34,18 @@ class Game24Config(SearchConfig):
         self.depth_limit = depth_limit
         self.temperature = temperature
         self.calc_reward = calc_reward
+        # Per-problem timing: first generate call to last generate return
+        self.first_send_ts = None
+        self.last_return_ts = None
+
+    def _gen(self, *args, **kwargs):
+        """Proxy to self.base_model.generate with timing for problem-level latency."""
+        t0 = time.perf_counter()
+        if self.first_send_ts is None:
+            self.first_send_ts = t0
+        out = self.base_model.generate(*args, **kwargs)
+        self.last_return_ts = time.perf_counter()
+        return out
 
     @staticmethod
     def output_prompt_wrap(state: Game24State) -> str:
@@ -82,8 +95,7 @@ class Game24Config(SearchConfig):
         print(f'DEBUG: Generating actions for state.current={repr(state.current)}')
         if state.current == '24':
             prompt = self.output_prompt_wrap(state)
-            output = \
-            self.base_model.generate([prompt], num_return_sequences=1, do_sample=False, eos_token_id='\n').text[0]
+            output = self._gen([prompt], num_return_sequences=1, do_sample=False, eos_token_id='\n').text[0]
             output = 'Answer: ' + output.strip()
             print(f'DEBUG: Generated Answer action: {repr(output)}')
             return [output]
@@ -93,8 +105,7 @@ class Game24Config(SearchConfig):
         else:
             prompt = self.propose_prompt_wrap(state)
             print(f'DEBUG: Prompt sent to model: {repr(prompt)}')
-            output = \
-            self.base_model.generate([prompt], num_return_sequences=1, do_sample=False, eos_token_id='Input').text[0]
+            output = self._gen([prompt], num_return_sequences=1, do_sample=False, eos_token_id='Input').text[0]
             print(f'DEBUG: Raw model output: {repr(output)}')
             output = output.strip()
             # Don't split on \n\n as it removes the actual operations
@@ -142,8 +153,8 @@ class Game24Config(SearchConfig):
             value_outputs = []
             for idx in range(0, self.n_eval, self.batch_size):
                 n_samples = min(self.n_eval - idx, self.batch_size)
-                output = self.base_model.generate([prompt], do_sample=True, temperature=self.temperature,
-                                                  num_return_sequences=n_samples).text
+                output = self._gen([prompt], do_sample=True, temperature=self.temperature,
+                                   num_return_sequences=n_samples).text
                 print(f'DEBUG: LLM raw output: {output}')
                 processed_outputs = [o.strip() for o in output]  # Keep full text for retrieve_value()
                 value_outputs += processed_outputs
