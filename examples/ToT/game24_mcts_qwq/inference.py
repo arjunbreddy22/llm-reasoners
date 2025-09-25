@@ -12,6 +12,8 @@ from reasoners.visualization import TreeLog
 from world_model import Game24WorldModel, Game24State, Game24Action
 from search_config import Game24Config
 import utils
+import re
+import os
 
 
 def node_visualizer(x: MCTSNode):
@@ -37,6 +39,8 @@ def mcts_tot_game24(base_model: LanguageModel,
                log_dir: Optional[str] = None,
                disable_log: bool = False,
                calc_reward: Literal['sampling', 'logits'] = 'sampling',
+               results_model_label: Optional[str] = None,
+               results_dir: Optional[str] = None,
                **search_algo_params):
     if not disable_log:
         if log_dir is None:
@@ -61,9 +65,16 @@ def mcts_tot_game24(base_model: LanguageModel,
     # test from 900-905 for quick 5-problem test (change back to 900:1000 for full test)
     dataset = utils.read_data(file='./examples/ToT/game24/data/24.csv')[900:905]
     correct_count = 0
+    latencies_ms = []
     for i, example in enumerate(tqdm(dataset, total=len(dataset), initial=0, desc='game24')):
         # print(f'\n======== example {i}: {example} ========')
         reasoner.world_model = Game24WorldModel(base_model=base_model, prompt=prompts, batch_size=batch_size)
+        # Reset per-problem timing on the config
+        try:
+            config.first_send_ts = None
+            config.last_return_ts = None
+        except Exception:
+            pass
         # algo_output = reasoner(example, action_dedup=True, return_beam=True, early_terminate=False,
         #                        reward_strategy='last_iter')
         algo_output = reasoner(example)
@@ -85,7 +96,12 @@ def mcts_tot_game24(base_model: LanguageModel,
 
         correct_count += correct
         accuracy = correct_count / (i + 1)
-        log_str = f'Case #{resume + i + 1}: {correct=}, {output=} ; {accuracy=:.3f} ({correct_count}/{i + 1})'
+        # Problem-level latency (first generate call to last token return)
+        latency_ms = None
+        if getattr(config, 'first_send_ts', None) is not None and getattr(config, 'last_return_ts', None) is not None:
+            latency_ms = (config.last_return_ts - config.first_send_ts) * 1000.0
+        latencies_ms.append(latency_ms)
+        log_str = f'Case #{resume + i + 1}: {correct=}, {output=} ; {accuracy=:.3f} ({correct_count}/{i + 1}); latency_ms={latency_ms}'
         tqdm.write(log_str)
         if not disable_log:
             with open(os.path.join(log_dir, 'result.log'), 'a') as f:
@@ -96,6 +112,31 @@ def mcts_tot_game24(base_model: LanguageModel,
                 with open(os.path.join(log_dir, 'algo_output', f'{resume + i + 1}.json'), 'w') as f:
                     # noinspection PyTypeChecker
                     print(TreeLog.from_mcts_results(algo_output, node_data_factory=node_visualizer), file=f)
+
+    # Persist per-problem latencies and total accuracy to a results file
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    if results_dir is None:
+        results_dir = os.path.join('results', 'game24_mcts_qwq')
+    os.makedirs(results_dir, exist_ok=True)
+    def _sanitize(s: str) -> str:
+        try:
+            return re.sub(r'[^A-Za-z0-9_.\-]+', '_', s)
+        except Exception:
+            return 'model'
+    model_tag = _sanitize(results_model_label or 'model')
+    results_path = os.path.join(results_dir, f'{timestamp}_{model_tag}.json')
+    summary = {
+        'timestamp': timestamp,
+        'model': results_model_label,
+        'n_examples': len(dataset),
+        'latencies_ms': latencies_ms,
+        'mean_latency_ms': float(np.nan if len([x for x in latencies_ms if x is not None]) == 0 else float(np.mean([x for x in latencies_ms if x is not None]))),
+        'total_accuracy': float(correct_count / max(1, len(dataset))),
+    }
+    with open(results_path, 'w') as f:
+        import json as _json
+        _json.dump(summary, f, indent=2)
+    print(f'DEBUG: Saved results to {results_path}')
 
 
 if __name__ == '__main__':
@@ -146,6 +187,27 @@ if __name__ == '__main__':
             torch.cuda.manual_seed(0)
             torch.backends.cudnn.deterministic = True
 
+        # Determine a model label for results naming
+        def _model_label():
+            try:
+                if base_lm == 'sglang':
+                    return sglang_model
+                if base_lm == 'hf':
+                    return hf_path
+                if base_lm == 'llama-3':
+                    return f"llama-3_{llama_size}"
+                if base_lm == 'llama-2':
+                    return f"llama-2_{llama_size}"
+                if base_lm == 'llama':
+                    return f"llama_{llama_size}"
+                if base_lm == 'exllama':
+                    return exllama_model_dir
+                if base_lm == 'llama.cpp':
+                    return 'llama.cpp'
+            except Exception:
+                pass
+            return base_lm
+
         if base_lm == 'llama':
             from reasoners.lm import LlamaModel
             base_model = LlamaModel(llama_ckpts, llama_size, max_batch_size=batch_size)
@@ -179,6 +241,7 @@ if __name__ == '__main__':
                    n_beam=5,
                    disable_log=disable_log or local_rank != 0,
                    search_algo=MCTS,
+                   results_model_label=_model_label(),
                    **kwargs)
 
 

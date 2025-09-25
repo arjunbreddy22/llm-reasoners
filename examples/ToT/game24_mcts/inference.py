@@ -13,6 +13,7 @@ from world_model import Game24WorldModel, Game24State, Game24Action
 from search_config import Game24Config
 import utils
 import re
+import os
 
 
 def node_visualizer(x: MCTSNode):
