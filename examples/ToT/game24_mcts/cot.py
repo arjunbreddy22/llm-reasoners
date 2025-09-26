@@ -27,6 +27,10 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
     for i, example in enumerate(tqdm(dataset, total=len(dataset), initial=0, desc='game24', disable=disable_log)):
         lm_input = standard_prompt.format(input=example)
         
+        # Debug: Check what we're actually sending to the model
+        print(f"DEBUG: example = {repr(example)}")
+        print(f"DEBUG: lm_input = {repr(lm_input)}")
+        
         # Time the single LLM call for sequential decoding
         start_time = time.perf_counter()
         output = base_model.generate([lm_input], eos_token_id='\n', temperature=0., additional_prompt='CONTINUE').text[0].split('\n')[0]
