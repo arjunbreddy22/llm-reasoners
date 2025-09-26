@@ -62,8 +62,8 @@ def mcts_tot_game24(base_model: LanguageModel,
     print(f'DEBUG: MCTS algorithm created with uct_with_fast_reward = {getattr(search_algo, "uct_with_fast_reward", "ATTRIBUTE NOT FOUND")}')
     reasoner = Reasoner(world_model=world_model, search_config=config, search_algo=search_algo)
 
-    # test from 900-920 for 20-problem test (change back to 900:1000 for full test)
-    dataset = utils.read_data(file='./examples/ToT/game24/data/24.csv')[900:920]
+    # test from 900-910 for 10-problem test (change back to 900:1000 for full test)
+    dataset = utils.read_data(file='./examples/ToT/game24/data/24.csv')[900:910]
     correct_count = 0
     latencies_ms = []
     for i, example in enumerate(tqdm(dataset, total=len(dataset), initial=0, desc='game24')):
