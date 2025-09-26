@@ -100,13 +100,10 @@ if __name__ == '__main__':
              sglang_url: str = 'http://127.0.0.1:30001',
              sglang_model: str = 'Qwen/Qwen2.5-7B-Instruct',
              batch_size: int = 1,
-             prompts: str = 'examples/ToT/game24_mcts/prompts/game24.json',
              openai_mode: str = 'gpt-4-1106-preview',
              disable_log: bool = False,
              disable_tqdm: bool = False,
              **kwargs):
-        with open(prompts) as f:
-            prompts = json.load(f)
         if base_lm in ['llama', 'llama2']:
             import torch
             import torch.backends.cudnn
