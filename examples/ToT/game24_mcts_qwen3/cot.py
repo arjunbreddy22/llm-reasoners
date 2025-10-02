@@ -35,7 +35,7 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
         start_time = time.perf_counter()
         output = base_model.generate([lm_input], eos_token_id='\n', temperature=0., additional_prompt='CONTINUE').text[0].split('\n')[0]
         end_time = time.perf_counter()
-        
+        print(f"DEBUG: output = {repr(output)}")
         latency_ms = (end_time - start_time) * 1000.0
         latencies_ms.append(latency_ms)
         
