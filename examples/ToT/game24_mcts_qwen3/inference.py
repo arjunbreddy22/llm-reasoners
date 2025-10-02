@@ -232,7 +232,7 @@ if __name__ == '__main__':
             import os
             from reasoners.lm import SGLangModel
             os.environ["SGLANG_API_URL"] = sglang_url
-            base_model = SGLangModel(sglang_model, max_new_tokens=1024, is_instruct_model=True)
+            base_model = SGLangModel(sglang_model, max_new_tokens=3072, is_instruct_model=True)
         else:
             assert False, f'cannot resolve {base_lm=}'
         mcts_tot_game24(base_model=base_model,
