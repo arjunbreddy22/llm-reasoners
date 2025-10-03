@@ -42,7 +42,12 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
         # Also drop unmatched think tags if the block wasn't closed
         text = text.replace("<think>", "").replace("</think>", "")
         lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
-        # Prefer a line that contains an equation and optionally ends with = 24
+        # First, try validating the full cleaned text (handles equations embedded anywhere)
+        if utils.test_output(example, text):
+            output = text
+        else:
+            output = None
+        # Prefer a line that contains an equation and actually solves the problem
         candidates = []
         for ln in lines:
             s = ln
@@ -50,19 +55,24 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
                 s = s[len('answer:'):].strip()
             if '=' in s:
                 candidates.append(s)
-        output = None
-        # Pick the first candidate explicitly asserting 24 on RHS
-        for c in candidates:
-            if re.search(r"=\s*24\b", c):
-                output = c
-                break
-        # Fallback: pick the first equation line if none explicitly say 24
-        if output is None and candidates:
-            output = candidates[0]
+        # If not yet found, try candidates
+        # 1) Prefer candidates that pass strict validation (use all numbers once and equal 24)
+        if output is None:
+            for c in candidates:
+                if utils.test_output(example, c):
+                    output = c
+                    break
+        # 2) Otherwise, prefer candidates that end with "= 24" (may still fail strict check)
+        if output is None:
+            for c in candidates:
+                if re.search(r"=\s*24\b", c):
+                    output = c
+                    break
         if output is None:
             # Second attempt: force a single-line answer without analysis
             force_tail = (
-                "\nOnly output one line in the exact format: (EXPRESSION) = 24\n"
+                "\nYou must use each of the four input numbers exactly once.\n"
+                "Output exactly one line in the format: (EXPRESSION) = 24\n"
                 "Do not include any other text. No <think>.\n"
                 "Answer: "
             )
@@ -75,6 +85,13 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
                 output = f"Answer: {line2.strip()}"
             else:
                 output = line2.strip()
+            # Try to salvage a valid equation from the fallback
+            out_core = output[len('Answer:'):].strip() if output.lower().startswith('answer:') else output
+            if not utils.test_output(example, out_core) and '=' in out_core:
+                # truncate at first sentence if needed
+                out_core2 = out_core.split('.')[0].strip()
+                if utils.test_output(example, out_core2):
+                    output = out_core2
             # Final guard: if still no '=', fall back to first non-empty line of original
             if '=' not in output and lines:
                 output = lines[0]

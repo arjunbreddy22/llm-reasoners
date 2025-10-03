@@ -47,20 +47,73 @@ def get_input(self, idx: int) -> str:
 #         # print(e)
 #         return {'r': 0}
 
+def _extract_numbers_decimal(s: str) -> list[float]:
+    return [float(x) for x in re.findall(r"\d+(?:\.\d+)?", s)]
+
+
+def _extract_math_expression(text: str) -> str | None:
+    # Match continuous parts containing numbers, operators, parentheses
+    math_pattern = r'([0-9+\-*/().\s]+(?:[+\-*/][0-9+\-*/().\s]*)*)'
+    matches = re.findall(math_pattern, text)
+    if not matches:
+        return None
+    longest = max(matches, key=len).strip()
+    allowed = set('0123456789+-*/(). ')
+    if all(c in allowed for c in longest) and any(c in '+-*/' for c in longest):
+        return longest
+    return None
+
+
+def _find_candidate_expressions(output: str) -> list[str]:
+    # Accept expressions that end with = 24 (and minor variants)
+    patterns = [
+        r'([^=\n]*[0-9+\-*/().\s]+)\s*=\s*24(?:\s|$|\n)',
+        r'([^=\n]*[0-9+\-*/().\s]+)\s*=\s*24\.0(?:\s|$|\n)',
+        r'([^=\n]*[0-9+\-*/().\s]+)\s*=\s*24\.(?:\s|$|\n)',
+    ]
+    found = []
+    for pat in patterns:
+        for m in re.finditer(pat, output, flags=re.IGNORECASE):
+            expr = m.group(1).strip()
+            math_expr = _extract_math_expression(expr)
+            if math_expr:
+                found.append(math_expr)
+    # Deduplicate preserving order
+    dedup = []
+    seen = set()
+    for e in found:
+        if e not in seen:
+            seen.add(e)
+            dedup.append(e)
+    return dedup
+
+
 def test_output(question: str, output: str):
-    if output is None or '=' not in output:
+    """Robust validator: scan output for any expression that equals 24 using all input numbers exactly once."""
+    if output is None or not isinstance(output, str) or output.strip() == '':
         return False
-    if output.split('=')[1].strip() != '24':
+    # Strip possible think tags
+    text = re.sub(r"<think>.*?</think>", "", output, flags=re.DOTALL | re.IGNORECASE)
+    text = text.replace("<think>", "").replace("</think>", "")
+    candidates = _find_candidate_expressions(text)
+    if not candidates:
         return False
-    expression = output.split('=')[0]
-    numbers = re.findall(r'\d+', expression)
-    question_numbers = re.findall(r'\d+', question)
-    if sorted(numbers) != sorted(question_numbers):
-        return False
-    try:
-        return abs(float(sympy.simplify(expression)) - 24) < 1e-6
-    except ValueError:
-        return False
+    # Prepare input numbers multiset (decimal-aware)
+    q_nums = _extract_numbers_decimal(question)
+    q_count = Counter(q_nums)
+    for expr in candidates:
+        try:
+            val = float(sympy.simplify(expr))
+        except Exception:
+            continue
+        if abs(val - 24.0) > 1e-6:
+            continue
+        used = _extract_numbers_decimal(expr)
+        if len(used) != len(q_nums):
+            continue
+        if Counter(used) == q_count:
+            return True
+    return False
 
 
 def get_current_numbers(y: str) -> str:
