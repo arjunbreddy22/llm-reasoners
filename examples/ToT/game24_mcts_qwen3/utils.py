@@ -65,17 +65,29 @@ def _extract_math_expression(text: str) -> str | None:
 
 
 def _find_candidate_expressions(output: str) -> list[str]:
+    """Find candidate expressions that equal 24, robust to intermediate "= ... = 24" narration.
+
+    We capture the substring before "= 24" (or variants) allowing internal '=' and then
+    pick the subpart with the most numbers as the likely full expression (e.g., prefer
+    '((11-5)/2)*8' over '3*8' in '((11-5)/2)*8 = 3*8 = 24').
+    """
     # Accept expressions that end with = 24 (and minor variants)
     patterns = [
-        r'([^=\n]*[0-9+\-*/().\s]+)\s*=\s*24(?:\s|$|\n)',
-        r'([^=\n]*[0-9+\-*/().\s]+)\s*=\s*24\.0(?:\s|$|\n)',
-        r'([^=\n]*[0-9+\-*/().\s]+)\s*=\s*24\.(?:\s|$|\n)',
+        r'([0-9+\-*/().\s=]+?)\s*=\s*24(?:\s|$|\n|\.|\!)',
+        r'([0-9+\-*/().\s=]+?)\s*=\s*24\.0(?:\s|$|\n|\.|\!)',
+        r'([0-9+\-*/().\s=]+?)\s*=\s*24\.(?:\s|$|\n|\.|\!)',
     ]
-    found = []
+    found: list[str] = []
     for pat in patterns:
         for m in re.finditer(pat, output, flags=re.IGNORECASE):
-            expr = m.group(1).strip()
-            math_expr = _extract_math_expression(expr)
+            left_of_24 = m.group(1).strip()
+            # If narration includes intermediate '=', pick the segment with most numbers
+            parts = [p.strip() for p in re.split(r'=\s*', left_of_24) if p.strip()]
+            if not parts:
+                continue
+            parts_sorted = sorted(parts, key=lambda p: len(_extract_numbers_decimal(p)), reverse=True)
+            expr_candidate = parts_sorted[0]
+            math_expr = _extract_math_expression(expr_candidate)
             if math_expr:
                 found.append(math_expr)
     # Deduplicate preserving order
