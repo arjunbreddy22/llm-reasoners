@@ -96,8 +96,6 @@ def test_output(question: str, output: str):
     text = re.sub(r"<think>.*?</think>", "", output, flags=re.DOTALL | re.IGNORECASE)
     text = text.replace("<think>", "").replace("</think>", "")
     candidates = _find_candidate_expressions(text)
-    if not candidates:
-        return False
     # Prepare input numbers multiset (decimal-aware)
     q_nums = _extract_numbers_decimal(question)
     q_count = Counter(q_nums)
@@ -113,6 +111,18 @@ def test_output(question: str, output: str):
             continue
         if Counter(used) == q_count:
             return True
+    # Fallback: if no '= 24' expression found, try the longest math expression
+    if not candidates:
+        expr = _extract_math_expression(text)
+        if expr is not None:
+            try:
+                val = float(sympy.simplify(expr))
+            except Exception:
+                return False
+            if abs(val - 24.0) > 1e-6:
+                return False
+            used = _extract_numbers_decimal(expr)
+            return Counter(used) == q_count and len(used) == len(q_nums)
     return False
 
 
