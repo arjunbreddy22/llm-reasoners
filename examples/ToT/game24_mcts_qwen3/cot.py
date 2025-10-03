@@ -32,10 +32,36 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
         print(f"DEBUG: lm_input = {repr(lm_input)}")
         
         # Time the single LLM call for sequential decoding
+        # Avoid stopping on a single newline to prevent truncation at "<think>\n".
+        # Also avoid adding extra CONTINUE templates; keep the prompt minimal and parse the result.
         start_time = time.perf_counter()
-        output = base_model.generate([lm_input], eos_token_id='\n', temperature=0., additional_prompt='CONTINUE').text[0].split('\n')[0]
+        raw = base_model.generate([lm_input], temperature=0.0, do_sample=False, max_new_tokens=128).text[0]
         end_time = time.perf_counter()
-        print(f"DEBUG: output = {repr(output)}")
+        # Post-process to remove <think> blocks and extract the first equation line
+        text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+        lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
+        # Prefer a line that contains an equation and optionally ends with = 24
+        candidates = []
+        for ln in lines:
+            s = ln
+            if s.lower().startswith('answer:'):
+                s = s[len('answer:'):].strip()
+            if '=' in s:
+                candidates.append(s)
+        output = None
+        # Pick the first candidate explicitly asserting 24 on RHS
+        for c in candidates:
+            if re.search(r"=\s*24\b", c):
+                output = c
+                break
+        # Fallback: pick the first equation line if none explicitly say 24
+        if output is None and candidates:
+            output = candidates[0]
+        if output is None:
+            # As a last resort, return the first non-empty line (will likely be incorrect)
+            output = lines[0] if lines else ''
+        print(f"DEBUG: raw = {repr(raw)}")
+        print(f"DEBUG: parsed output = {repr(output)}")
         latency_ms = (end_time - start_time) * 1000.0
         latencies_ms.append(latency_ms)
         
