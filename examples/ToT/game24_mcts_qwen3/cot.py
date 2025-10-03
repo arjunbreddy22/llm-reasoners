@@ -77,16 +77,15 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
                     output = c
                     break
         if output is None:
-            # Second attempt: even stronger one-line bias
+            # Second attempt: minimal instruction, no prefill
             minimal_prompt = (
                 "Use numbers and basic arithmetic operations (+ - * /) to obtain 24.\n"
-                f"Input: {example}\n"
-                "You must use each input number exactly once.\n"
-                "Output exactly one line: (EXPRESSION) = 24\n"
-                "Do not include any other text. No <think>.\n"
-                "Answer: ("
+                f"Input: {example}\n\n"
+                "Output exactly one line in the format: (EXPRESSION) = 24\n"
+                "Use each input number exactly once. No other text.\n"
+                "Your solution:"
             )
-            raw2 = base_model.generate([minimal_prompt], temperature=0.1, do_sample=False, max_new_tokens=1024, stop="\n").text[0]
+            raw2 = base_model.generate([minimal_prompt], temperature=0.1, do_sample=False, max_new_tokens=1024).text[0]
             text2 = re.sub(r"<think>.*?</think>", "", raw2, flags=re.DOTALL | re.IGNORECASE)
             text2 = text2.replace("<think>", "").replace("</think>", "")
             # Accept fallback only if it contains a valid expression for this example
