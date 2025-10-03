@@ -35,10 +35,12 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
         # Avoid stopping on a single newline to prevent truncation at "<think>\n".
         # Also avoid adding extra CONTINUE templates; keep the prompt minimal and parse the result.
         start_time = time.perf_counter()
-        raw = base_model.generate([lm_input], temperature=0.0, do_sample=False, max_new_tokens=128).text[0]
+        raw = base_model.generate([lm_input], temperature=0.0, do_sample=False, max_new_tokens=256).text[0]
         end_time = time.perf_counter()
         # Post-process to remove <think> blocks and extract the first equation line
         text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+        # Also drop unmatched think tags if the block wasn't closed
+        text = text.replace("<think>", "").replace("</think>", "")
         lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
         # Prefer a line that contains an equation and optionally ends with = 24
         candidates = []
@@ -58,9 +60,27 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
         if output is None and candidates:
             output = candidates[0]
         if output is None:
-            # As a last resort, return the first non-empty line (will likely be incorrect)
-            output = lines[0] if lines else ''
+            # Second attempt: force a single-line answer without analysis
+            force_tail = (
+                "\nOnly output one line in the exact format: (EXPRESSION) = 24\n"
+                "Do not include any other text. No <think>.\n"
+                "Answer: "
+            )
+            raw2 = base_model.generate([lm_input + force_tail], temperature=0.0, do_sample=False, max_new_tokens=128).text[0]
+            text2 = re.sub(r"<think>.*?</think>", "", raw2, flags=re.DOTALL | re.IGNORECASE)
+            text2 = text2.replace("<think>", "").replace("</think>", "")
+            line2 = text2.strip().split('\n')[0]
+            # Normalize to include 'Answer:' prefix once
+            if not line2.lower().startswith('answer:'):
+                output = f"Answer: {line2.strip()}"
+            else:
+                output = line2.strip()
+            # Final guard: if still no '=', fall back to first non-empty line of original
+            if '=' not in output and lines:
+                output = lines[0]
         print(f"DEBUG: raw = {repr(raw)}")
+        if output is None:
+            print(f"DEBUG: second raw = {repr(raw2)}")
         print(f"DEBUG: parsed output = {repr(output)}")
         latency_ms = (end_time - start_time) * 1000.0
         latencies_ms.append(latency_ms)
