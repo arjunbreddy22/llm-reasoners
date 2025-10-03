@@ -25,14 +25,8 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
     correct_count = 0
     latencies_ms = []
     for i, example in enumerate(tqdm(dataset, total=len(dataset), initial=0, desc='game24', disable=disable_log)):
-        # Prompt aligned with working script: no prefilled symbols
-        lm_input = (
-            "Use numbers and basic arithmetic operations (+ - * /) to obtain 24.\n"
-            f"Input: {example}\n\n"
-            "Solve this step by step and provide your final answer in the format: expression = 24\n"
-            "Example: (1 + 2 + 3) * 4 = 24\n\n"
-            "Your solution:"
-        )
+        # Use the shared few-shot final-answer prompt to align with MCTS framing
+        lm_input = standard_prompt.format(input=example) + "\nAnswer:"
         
         # Debug: Check what we're actually sending to the model
         print(f"DEBUG: example = {repr(example)}")
