@@ -106,14 +106,91 @@ class Game24Config(SearchConfig):
         lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
         actions: List[str] = []
 
-        # Regex for equations like: a op b = c (non-anchored to allow numbered/bulleted lines)
-        eq_re = re.compile(r"(\d+)\s*([\+\-\*/])\s*(\d+)\s*=\s*(-?\d+(?:\.\d+)?)")
+        # Regex for equations like: a op b = c (non-anchored; allow integers or decimals for operands and result)
+        number_pat = r"-?\d+(?:\.\d+)?"
+        eq_re = re.compile(rf"({number_pat})\s*([\+\-\*/])\s*({number_pat})\s*=\s*({number_pat})")
         left_re = re.compile(r"\(\s*left\s*:\s*([^\)]+)\)", re.IGNORECASE)
 
         # Helper to reconstruct (left: ...) using current numbers and the equation
-        def reconstruct_left(equation: str) -> str:
-            # Use utility to compute the left list deterministically
-            return utils.correct_left_numbers(state.input, "\n".join(state.history), equation)
+        def _format_num(x: float) -> str:
+            # Normalize numeric string: integer if close to int; else trim trailing zeros
+            xi = int(round(x))
+            if abs(x - xi) < 1e-9:
+                return str(xi)
+            s = f"{x}"
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
+            return s
+
+        def reconstruct_c_and_left(a_str: str, op: str, b_str: str, c_str: str) -> tuple[str, str]:
+            """Validate operands against current numbers and build canonical left.
+
+            Returns (c_formatted, canonical_action) where canonical_action is
+            "A op B = C (left: ...)", or (None, None) if validation fails.
+            """
+            EPS = 1e-6
+            # Current tokens and a working copy to remove operands from
+            cur_tokens = state.current.replace(",", " ").split()
+            # Helper to pop one instance of a numeric value from tokens
+            def pop_value(tokens: list[str], val: float) -> bool:
+                for i, t in enumerate(tokens):
+                    try:
+                        if abs(float(t) - val) < EPS:
+                            tokens.pop(i)
+                            return True
+                    except Exception:
+                        continue
+                return False
+
+            try:
+                a_val = float(a_str)
+                b_val = float(b_str)
+            except Exception:
+                return None, None
+
+            # Validate membership of operands
+            tokens_after = cur_tokens.copy()
+            if not pop_value(tokens_after, a_val):
+                return None, None
+            if not pop_value(tokens_after, b_val):
+                return None, None
+
+            # Compute C from operation and compare with provided c_str
+            try:
+                if op == '+':
+                    c_calc = a_val + b_val
+                elif op == '-':
+                    c_calc = a_val - b_val
+                elif op == '*':
+                    c_calc = a_val * b_val
+                elif op == '/':
+                    if abs(b_val) < EPS:
+                        return None, None
+                    c_calc = a_val / b_val
+                else:
+                    return None, None
+            except Exception:
+                return None, None
+
+            # Prefer the model's printed C if close; otherwise use computed
+            try:
+                c_provided = float(c_str)
+                if abs(c_calc - c_provided) <= 1e-6:
+                    c_val = c_provided
+                else:
+                    c_val = c_calc
+            except Exception:
+                c_val = c_calc
+
+            # Build left list: result first, then remaining tokens (in their original string forms)
+            left_tokens = [_format_num(c_val)] + tokens_after
+            # Validate left size == k-1
+            if len(left_tokens) != max(1, len(cur_tokens) - 1):
+                return None, None
+
+            c_fmt = _format_num(c_val)
+            canonical = f"{_format_num(float(a_str))} {op} {_format_num(float(b_str))} = {c_fmt} (left: {' '.join(left_tokens)})"
+            return c_fmt, canonical
 
         seen = set()
         for ln in lines:
@@ -124,18 +201,11 @@ class Game24Config(SearchConfig):
             if not m:
                 continue
             a, op, b, c = m.groups()
-            equation = f"{int(a)} {op} {int(b)} = {str(float(c)).rstrip('0').rstrip('.') if '.' in c else c}"
-
-            # If a (left: ...) is present, validate; otherwise reconstruct
-            m_left = left_re.search(ln)
-            if m_left:
-                # Reconstruct to canonicalize and validate
-                canonical = reconstruct_left(equation)
-            else:
-                canonical = reconstruct_left(equation)
-
-            # Normalize double spaces/commas
-            canonical = canonical.replace(',', '').replace('  ', ' ').strip()
+            # Validate and reconstruct left deterministically from the current numbers
+            c_fmt, canonical = reconstruct_c_and_left(a, op, b, c)
+            if canonical is None:
+                continue
+            canonical = canonical.replace('  ', ' ').strip()
             if canonical not in seen:
                 seen.add(canonical)
                 actions.append(canonical)
