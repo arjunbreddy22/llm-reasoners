@@ -98,8 +98,11 @@ class Game24Config(SearchConfig):
         - Reconstructs or validates the (left: ...) portion using the current multiset.
         - Deduplicates while preserving order.
         """
-        # Normalize newlines and split for scanning
+        # Normalize newlines and strip model meta-thinking tags
         text = raw_text.replace('\r\n', '\n').replace('\r', '\n')
+        # Remove <think> blocks if present to surface the action lines
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL|re.IGNORECASE)
+        text = text.replace("<think>", "").replace("</think>", "")
         lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
         actions: List[str] = []
 
@@ -174,7 +177,9 @@ class Game24Config(SearchConfig):
                 f"Each line must be of the form: A op B = C (left: exactly {left_count} numbers separated by spaces).\n"
                 f"Use only the numbers from: {state.current}.\n"
                 + (example_line if example_line else '') +
-                "Do not add any analysis, numbering, or extra text.\n"
+                "Do not add any analysis, numbering, tags, or extra text.\n"
+                "Do not include <think>. Start immediately with the first line.\n"
+                "The first character of your output must be a digit.\n"
             )
             prompt = base_prompt + constraint_tail
             print(f'DEBUG: Prompt sent to model: {repr(prompt)}')
@@ -182,7 +187,7 @@ class Game24Config(SearchConfig):
                 [prompt],
                 num_return_sequences=1,
                 do_sample=False,
-                max_new_tokens=96,
+                max_new_tokens=256,
                 eos_token_id='Input',
             ).text[0]
             print(f'DEBUG: Raw model output: {repr(output)}')
