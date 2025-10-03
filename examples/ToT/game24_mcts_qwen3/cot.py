@@ -25,7 +25,15 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
     correct_count = 0
     latencies_ms = []
     for i, example in enumerate(tqdm(dataset, total=len(dataset), initial=0, desc='game24', disable=disable_log)):
-        lm_input = standard_prompt.format(input=example)
+        # Minimal prompt that strongly anchors the final format
+        lm_input = (
+            "Use numbers and basic arithmetic operations (+ - * /) to obtain 24.\n"
+            f"Input: {example}\n"
+            "You must use each input number exactly once.\n"
+            "Output exactly one line in the format: (EXPRESSION) = 24\n"
+            "Do not include any other text. No <think>.\n"
+            "Answer: ("
+        )
         
         # Debug: Check what we're actually sending to the model
         print(f"DEBUG: example = {repr(example)}")
@@ -69,15 +77,16 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
                     output = c
                     break
         if output is None:
-            # Second attempt: use a minimal, instruction-only prompt to avoid long-chain thinking
+            # Second attempt: even stronger one-line bias
             minimal_prompt = (
                 "Use numbers and basic arithmetic operations (+ - * /) to obtain 24.\n"
                 f"Input: {example}\n"
-                "Output exactly one line in the format: (EXPRESSION) = 24\n"
-                "Use each input number exactly once. No other text. No <think>.\n"
-                "Answer: "
+                "You must use each input number exactly once.\n"
+                "Output exactly one line: (EXPRESSION) = 24\n"
+                "Do not include any other text. No <think>.\n"
+                "Answer: ("
             )
-            raw2 = base_model.generate([minimal_prompt], temperature=0.0, do_sample=False, max_new_tokens=128).text[0]
+            raw2 = base_model.generate([minimal_prompt], temperature=0.0, do_sample=False, max_new_tokens=256).text[0]
             text2 = re.sub(r"<think>.*?</think>", "", raw2, flags=re.DOTALL | re.IGNORECASE)
             text2 = text2.replace("<think>", "").replace("</think>", "")
             # Accept fallback only if it contains a valid expression for this example
