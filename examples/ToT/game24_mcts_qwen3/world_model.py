@@ -44,12 +44,23 @@ class Game24WorldModel(WorldModel):
             next_state.output = match[1] if match is not None else ''
         else:
             match = re.match(r'.*\(left: (.*)\)', action)
+            if match is None:
+                # Attempt to reconstruct a correct left-list using utilities
+                try:
+                    from utils import correct_left_numbers
+                    reconstructed = correct_left_numbers(state.input, '\n'.join(state.history), action)
+                    match = re.match(r'.*\(left: (.*)\)', reconstructed)
+                    if match is not None:
+                        action = reconstructed
+                except Exception:
+                    pass
             if match is not None:
                 # Normalize format: remove commas to match prompt examples
                 next_state.current = match[1].replace(',', '').replace('  ', ' ').strip()
+                next_state.history.append(action)
             else:
-                next_state.current = ''
-            next_state.history.append(action)
+                # If still not parsable, keep state unchanged and do not append invalid action
+                print(f'DEBUG: step could not parse or reconstruct left-list for action: {repr(action)}')
         print(f'DEBUG: Stepping {state} with {action=} to {next_state}')
         return next_state, {'next_state': next_state}
 

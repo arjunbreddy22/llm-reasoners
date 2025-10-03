@@ -1,6 +1,6 @@
 import copy
 import re
-from typing import Literal
+from typing import Literal, List
 
 import numpy as np
 import scipy
@@ -9,6 +9,7 @@ import time
 
 from reasoners import SearchConfig, LanguageModel
 from world_model import Game24State, Game24Action
+import utils
 
 from prompts.game24 import output_prompt, propose_prompt, value_prompt, value_last_step_prompt, value_map
 
@@ -89,6 +90,55 @@ class Game24Config(SearchConfig):
         value = sum(v * keyword_counts[k] for k, v in value_map.items())
         return value
 
+    def _canonicalize_actions(self, state: Game24State, raw_text: str) -> List[Game24Action]:
+        """Extract and canonicalize actions from raw model output.
+
+        - Accepts lines anywhere in the text, even if surrounded by analysis.
+        - Normalizes spacing and removes commas.
+        - Reconstructs or validates the (left: ...) portion using the current multiset.
+        - Deduplicates while preserving order.
+        """
+        # Normalize newlines and split for scanning
+        text = raw_text.replace('\r\n', '\n').replace('\r', '\n')
+        lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
+        actions: List[str] = []
+
+        # Regex for equations like: a op b = c
+        eq_re = re.compile(r"^\s*(\d+)\s*([\+\-\*/])\s*(\d+)\s*=\s*(-?\d+(?:\.\d+)?)")
+        left_re = re.compile(r"\(\s*left\s*:\s*([^\)]+)\)", re.IGNORECASE)
+
+        # Helper to reconstruct (left: ...) using current numbers and the equation
+        def reconstruct_left(equation: str) -> str:
+            # Use utility to compute the left list deterministically
+            return utils.correct_left_numbers(state.input, "\n".join(state.history), equation)
+
+        seen = set()
+        for ln in lines:
+            # Skip any premature Answer lines here; answer is handled elsewhere
+            if ln.lower().startswith('answer:'):
+                continue
+            m = eq_re.search(ln)
+            if not m:
+                continue
+            a, op, b, c = m.groups()
+            equation = f"{int(a)} {op} {int(b)} = {str(float(c)).rstrip('0').rstrip('.') if '.' in c else c}"
+
+            # If a (left: ...) is present, validate; otherwise reconstruct
+            m_left = left_re.search(ln)
+            if m_left:
+                # Reconstruct to canonicalize and validate
+                canonical = reconstruct_left(equation)
+            else:
+                canonical = reconstruct_left(equation)
+
+            # Normalize double spaces/commas
+            canonical = canonical.replace(',', '').replace('  ', ' ').strip()
+            if canonical not in seen:
+                seen.add(canonical)
+                actions.append(canonical)
+
+        return actions
+
     def get_actions(self, state: Game24State) -> list[Game24Action]:
         if state.current == '':
             return []
@@ -103,18 +153,26 @@ class Game24Config(SearchConfig):
             print(f'DEBUG: Single number state {repr(state.current)} - returning [] (no actions possible)')
             return []
         else:
-            prompt = self.propose_prompt_wrap(state)
+            # Strictly instruct the model to output only action lines
+            base_prompt = self.propose_prompt_wrap(state)
+            constraint_tail = (
+                f"Output exactly {self.n_actions} lines.\n"
+                "Each line must be of the form: A op B = C (left: X Y Z).\n"
+                f"Use only the numbers from: {state.current}.\n"
+                "Do not add any analysis, numbering, or extra text.\n"
+            )
+            prompt = base_prompt + constraint_tail
             print(f'DEBUG: Prompt sent to model: {repr(prompt)}')
-            output = self._gen([prompt], num_return_sequences=1, do_sample=False, eos_token_id='Input').text[0]
+            output = self._gen(
+                [prompt],
+                num_return_sequences=1,
+                do_sample=False,
+                eos_token_id='Input',
+            ).text[0]
             print(f'DEBUG: Raw model output: {repr(output)}')
-            output = output.strip()
-            # Don't split on \n\n as it removes the actual operations
-            output = output.split('\n')
-            print(f'DEBUG: Split lines: {output}')
-            actions = [x for x in output if 'left' in x]
-            # set does not guarantee order, but dict does guarantee
-            # we cannot use set here because torch.distributed in LLaMA requires the same order across all processes
-            actions = list(dict.fromkeys(actions))
+            actions = self._canonicalize_actions(state, output)
+            # Cap to n_actions to avoid explosion
+            actions = actions[: self.n_actions]
             print(f'DEBUG: Generated {len(actions)} intermediate actions: {actions}')
             return actions
         
@@ -153,10 +211,15 @@ class Game24Config(SearchConfig):
             value_outputs = []
             for idx in range(0, self.n_eval, self.batch_size):
                 n_samples = min(self.n_eval - idx, self.batch_size)
-                output = self._gen([prompt], do_sample=True, temperature=self.temperature,
-                                   num_return_sequences=n_samples).text
+                # Force single-token, single-word style outputs when sampling
+                strict_prompt = (
+                    prompt
+                    + "\nOutput exactly one word: sure | likely | impossible. Do not add any other text."
+                )
+                output = self._gen([strict_prompt], do_sample=False, temperature=0.0,
+                                   num_return_sequences=n_samples, eos_token_id='\n').text
                 print(f'DEBUG: LLM raw output: {output}')
-                processed_outputs = [o.strip() for o in output]  # Keep full text for retrieve_value()
+                processed_outputs = [o.strip() for o in output]
                 value_outputs += processed_outputs
                 print(f'DEBUG: processed outputs: {processed_outputs}')
             print(f'DEBUG: all value_outputs: {value_outputs}')

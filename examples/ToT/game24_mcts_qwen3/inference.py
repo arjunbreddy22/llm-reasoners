@@ -235,6 +235,15 @@ if __name__ == '__main__':
             base_model = SGLangModel(sglang_model, max_new_tokens=3072, is_instruct_model=True)
         else:
             assert False, f'cannot resolve {base_lm=}'
+        # Determine reward mode: default to logits for Qwen3 models unless overridden
+        reward_mode = kwargs.pop('calc_reward', None)
+        try:
+            if reward_mode is None and base_lm == 'sglang':
+                mdl = (sglang_model or '').lower()
+                if 'qwen-3' in mdl or 'qwen3' in mdl:
+                    reward_mode = 'logits'
+        except Exception:
+            pass
         mcts_tot_game24(base_model=base_model,
                    prompts=prompts,
                    batch_size=batch_size,
@@ -242,6 +251,7 @@ if __name__ == '__main__':
                    disable_log=disable_log or local_rank != 0,
                    search_algo=MCTS,
                    results_model_label=_model_label(),
+                   calc_reward=reward_mode or 'sampling',
                    **kwargs)
 
 
