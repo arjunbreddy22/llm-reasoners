@@ -21,7 +21,7 @@ def cot_game24(base_model: LanguageModel, disable_log: bool = False, resume=0,
         with open(os.path.join(log_dir, 'args.txt'), 'w') as f:
             print(sys.argv, file=f)
     # test from 900-910 for 10-problem test (change back to 900:1000 for full test)
-    dataset = utils.read_data(file='./examples/ToT/game24/data/24.csv')[900:910]
+    dataset = utils.read_data(file='./examples/ToT/game24/data/24.csv')[900:950]
     correct_count = 0
     latencies_ms = []
     for i, example in enumerate(tqdm(dataset, total=len(dataset), initial=0, desc='game24', disable=disable_log)):
