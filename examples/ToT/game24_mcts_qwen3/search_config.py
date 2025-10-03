@@ -227,9 +227,17 @@ class Game24Config(SearchConfig):
             print(f'DEBUG: retrieve_value result: {value}')
         elif self.calc_reward == 'logits':
             value_keys = list(value_map.keys())
-            logits = self.base_model.get_next_token_logits([prompt], value_keys)[0]
-            logits = scipy.special.softmax(logits)
-            value = np.sum(logits * np.array(list(value_map.values())))
+            try:
+                # Preferred path when backend exposes next-token logits for candidates
+                logits = self.base_model.get_next_token_logits([prompt], value_keys)[0]
+                probs = scipy.special.softmax(logits)
+            except NotImplementedError:
+                # For SGLang CompletionModel: use choice-based loglikelihood over label words
+                contents = [prompt + k for k in value_keys]
+                ll = self.base_model.get_loglikelihood(prompt, contents)
+                # Convert log-likelihoods over choices into probabilities
+                probs = scipy.special.softmax(ll)
+            value = np.sum(probs * np.array(list(value_map.values())))
         else:
             raise NotImplementedError
 
