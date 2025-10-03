@@ -103,8 +103,8 @@ class Game24Config(SearchConfig):
         lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
         actions: List[str] = []
 
-        # Regex for equations like: a op b = c
-        eq_re = re.compile(r"^\s*(\d+)\s*([\+\-\*/])\s*(\d+)\s*=\s*(-?\d+(?:\.\d+)?)")
+        # Regex for equations like: a op b = c (non-anchored to allow numbered/bulleted lines)
+        eq_re = re.compile(r"(\d+)\s*([\+\-\*/])\s*(\d+)\s*=\s*(-?\d+(?:\.\d+)?)")
         left_re = re.compile(r"\(\s*left\s*:\s*([^\)]+)\)", re.IGNORECASE)
 
         # Helper to reconstruct (left: ...) using current numbers and the equation
@@ -155,10 +155,25 @@ class Game24Config(SearchConfig):
         else:
             # Strictly instruct the model to output only action lines
             base_prompt = self.propose_prompt_wrap(state)
+            # Determine how many numbers must remain after one operation
+            cur_nums = state.current.replace(',', ' ').split()
+            left_count = max(1, len(cur_nums) - 1)
+            # Build a tiny example consistent with the current state
+            example_line = ''
+            try:
+                if len(cur_nums) >= 2:
+                    a, b = int(cur_nums[0]), int(cur_nums[1])
+                    c = a + b
+                    remaining = cur_nums[2:]
+                    left_list = ' '.join([str(c)] + remaining)
+                    example_line = f"Example: {a} + {b} = {c} (left: {left_list})\n"
+            except Exception:
+                pass
             constraint_tail = (
                 f"Output exactly {self.n_actions} lines.\n"
-                "Each line must be of the form: A op B = C (left: X Y Z).\n"
+                f"Each line must be of the form: A op B = C (left: exactly {left_count} numbers separated by spaces).\n"
                 f"Use only the numbers from: {state.current}.\n"
+                + (example_line if example_line else '') +
                 "Do not add any analysis, numbering, or extra text.\n"
             )
             prompt = base_prompt + constraint_tail
@@ -167,6 +182,7 @@ class Game24Config(SearchConfig):
                 [prompt],
                 num_return_sequences=1,
                 do_sample=False,
+                max_new_tokens=96,
                 eos_token_id='Input',
             ).text[0]
             print(f'DEBUG: Raw model output: {repr(output)}')
