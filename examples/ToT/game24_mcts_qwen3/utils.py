@@ -88,6 +88,21 @@ def _find_candidate_expressions(output: str) -> list[str]:
     return dedup
 
 
+def _balance_parentheses(expr: str) -> str:
+    """Balance unmatched parentheses by prefixing/append minimal parens.
+
+    This addresses cases where the generation is a continuation that closes a
+    parenthesis started in the prompt (e.g., missing leading '(').
+    """
+    left = expr.count('(')
+    right = expr.count(')')
+    if right > left:
+        expr = '(' * (right - left) + expr
+    elif left > right:
+        expr = expr + ')' * (left - right)
+    return expr
+
+
 def test_output(question: str, output: str):
     """Robust validator: scan output for any expression that equals 24 using all input numbers exactly once."""
     if output is None or not isinstance(output, str) or output.strip() == '':
@@ -100,6 +115,7 @@ def test_output(question: str, output: str):
     q_nums = _extract_numbers_decimal(question)
     q_count = Counter(q_nums)
     for expr in candidates:
+        expr = _balance_parentheses(expr)
         try:
             val = float(sympy.simplify(expr))
         except Exception:
@@ -115,6 +131,7 @@ def test_output(question: str, output: str):
     if not candidates:
         expr = _extract_math_expression(text)
         if expr is not None:
+            expr = _balance_parentheses(expr)
             try:
                 val = float(sympy.simplify(expr))
             except Exception:
