@@ -202,7 +202,7 @@ if __name__ == '__main__':
             from reasoners.lm import SGLangModel
             os.environ["SGLANG_API_URL"] = sglang_url
             # Use completion-style generation (not chat) to better honor exact formatting and repetition_penalty
-            base_model = SGLangModel(sglang_model, max_new_tokens=1024, is_instruct_model=False)
+            base_model = SGLangModel(sglang_model, max_new_tokens=1024, is_instruct_model=True)
         else:
             assert False, f'cannot resolve {base_lm=}'
         # Determine a model label for results naming
