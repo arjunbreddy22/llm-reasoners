@@ -232,8 +232,8 @@ if __name__ == '__main__':
             import os
             from reasoners.lm import SGLangModel
             os.environ["SGLANG_API_URL"] = sglang_url
-            # Use completion-style generation to better control exact output formats
-            base_model = SGLangModel(sglang_model, max_new_tokens=3072, is_instruct_model=False)
+            # Switch back to instruct mode to test formatting compliance
+            base_model = SGLangModel(sglang_model, max_new_tokens=3072, is_instruct_model=True)
         else:
             assert False, f'cannot resolve {base_lm=}'
         # Determine reward mode: default to logits for Qwen3 models unless overridden
