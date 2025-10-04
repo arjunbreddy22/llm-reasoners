@@ -217,11 +217,49 @@ class Game24Config(SearchConfig):
             return []
         print(f'DEBUG: Generating actions for state.current={repr(state.current)}')
         if state.current == '24':
+            # History-based finalization with robust extraction like CoT
             prompt = self.output_prompt_wrap(state)
-            output = self._gen([prompt], num_return_sequences=1, do_sample=False, eos_token_id='\n').text[0]
-            output = 'Answer: ' + output.strip()
-            print(f'DEBUG: Generated Answer action: {repr(output)}')
-            return [output]
+            raw = self._gen([prompt], num_return_sequences=1, do_sample=False, eos_token_id='\n').text[0]
+            # Clean think tags
+            text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
+            text = text.replace("<think>", "").replace("</think>", "").strip()
+            lines = [ln.strip() for ln in text.split('\n') if ln.strip()]
+            expr = None
+            # First, try validating the full cleaned text
+            try:
+                if utils.test_output(state.input, text):
+                    expr = text
+            except Exception:
+                expr = None
+            # Collect candidate equation lines
+            if expr is None:
+                candidates = []
+                for ln in lines:
+                    s = ln
+                    if s.lower().startswith('answer:'):
+                        s = s[len('answer:'):].strip()
+                    if '=' in s:
+                        candidates.append(s)
+                # Prefer candidates that pass strict validation
+                for c in candidates:
+                    try:
+                        if utils.test_output(state.input, c):
+                            expr = c
+                            break
+                    except Exception:
+                        continue
+                # Otherwise, prefer those that end with '= 24'
+                if expr is None:
+                    for c in candidates:
+                        if re.search(r"=\s*24\b", c):
+                            expr = c
+                            break
+            if expr is None:
+                # Fallback to first line (for logging) if nothing validated
+                expr = lines[0] if lines else text
+            answer = 'Answer: ' + (expr or '').strip()
+            print(f'DEBUG: Generated Answer action (history+extract): {repr(answer)}')
+            return [answer]
         elif ' ' not in state.current:
             print(f'DEBUG: Single number state {repr(state.current)} - returning [] (no actions possible)')
             return []
