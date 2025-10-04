@@ -257,7 +257,7 @@ class Game24Config(SearchConfig):
                 [prompt],
                 num_return_sequences=1,
                 do_sample=False,
-                max_new_tokens=256,
+                max_new_tokens=512,
                 eos_token_id='Input',
             ).text[0]
             print(f'DEBUG: Raw model output: {repr(output)}')
