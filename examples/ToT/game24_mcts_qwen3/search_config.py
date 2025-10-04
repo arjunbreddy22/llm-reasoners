@@ -244,9 +244,12 @@ class Game24Config(SearchConfig):
                 pass
             constraint_tail = (
                 f"Output exactly {self.n_actions} lines.\n"
+                "Top next steps most likely to reach 24. Order from most promising to least.\n"
                 f"Each line must be of the form: A op B = C (left: exactly {left_count} numbers separated by spaces).\n"
                 f"Use only the numbers from: {state.current}.\n"
                 + (example_line if example_line else '') +
+                "Prefer integer results; avoid creating very large (>60) or very small (<1) numbers unless they directly lead to 24.\n"
+                "Avoid commutative duplicates (e.g., '4 + 5' vs '5 + 4').\n"
                 "Do not add any analysis, numbering, tags, or extra text.\n"
                 "Do not include <think>. Start immediately with the first line.\n"
                 "The first character of your output must be a digit.\n"
