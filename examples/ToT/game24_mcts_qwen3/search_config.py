@@ -286,6 +286,18 @@ class Game24Config(SearchConfig):
             next_state.current = match[1] if match is not None else ''
             next_state.history.append(action)
 
+        # If the action leads to a state that has collapsed to 24, treat as terminal with a high reward
+        try:
+            cur = next_state.current.strip().replace(',', ' ')
+            # Only consider single-number states here
+            tokens = [t for t in cur.split() if t]
+            if len(tokens) == 1:
+                val = float(tokens[0])
+                if abs(val - 24.0) < 1e-9:
+                    return 1.0
+        except Exception:
+            pass
+
         print(f'DEBUG: _reward check - history_len={len(next_state.history)}, depth_limit={self.depth_limit}')
         if len(next_state.history) >= self.depth_limit:
             print(f'DEBUG: _reward returning 0.0 due to depth limit hit')
