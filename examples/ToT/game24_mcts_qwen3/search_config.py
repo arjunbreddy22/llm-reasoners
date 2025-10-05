@@ -219,7 +219,7 @@ class Game24Config(SearchConfig):
         if state.current == '24':
             # History-based finalization with robust extraction like CoT
             prompt = self.output_prompt_wrap(state)
-            raw = self._gen([prompt], num_return_sequences=1, do_sample=False, eos_token_id='\n').text[0]
+            raw = self._gen([prompt], num_return_sequences=1, do_sample=False, temperature=0.0, max_new_tokens=256).text[0]
             # Clean think tags
             text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
             text = text.replace("<think>", "").replace("</think>", "").strip()
