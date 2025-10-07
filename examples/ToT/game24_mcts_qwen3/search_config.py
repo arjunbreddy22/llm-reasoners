@@ -219,7 +219,17 @@ class Game24Config(SearchConfig):
         if state.current == '24':
             # History-based finalization with robust extraction like CoT
             prompt = self.output_prompt_wrap(state)
+            try:
+                print(f"DEBUG: Finalization - history length: {len(state.history)}")
+                print(f"DEBUG: Finalization - history lines: {state.history}")
+                print(f"DEBUG: Finalization - prompt (first 500 chars): {repr(prompt[:500])}")
+            except Exception:
+                pass
             raw = self._gen([prompt], num_return_sequences=1, do_sample=False, temperature=0.0, max_new_tokens=256).text[0]
+            try:
+                print(f"DEBUG: Finalization - raw model output (first 500 chars): {repr(raw[:500])}")
+            except Exception:
+                pass
             # Clean think tags
             text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL | re.IGNORECASE)
             text = text.replace("<think>", "").replace("</think>", "").strip()
@@ -258,7 +268,16 @@ class Game24Config(SearchConfig):
                 # Fallback to first line (for logging) if nothing validated
                 expr = lines[0] if lines else text
             answer = 'Answer: ' + (expr or '').strip()
-            print(f'DEBUG: Generated Answer action (history+extract): {repr(answer)}')
+            try:
+                # Log what we will return and whether it validates
+                is_valid = False
+                try:
+                    is_valid = utils.test_output(state.input, answer)
+                except Exception:
+                    pass
+                print(f"DEBUG: Finalization - returning: {repr(answer)} ; validates={is_valid}")
+            except Exception:
+                pass
             return [answer]
         elif ' ' not in state.current:
             print(f'DEBUG: Single number state {repr(state.current)} - returning [] (no actions possible)')
